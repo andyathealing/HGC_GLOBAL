@@ -15,14 +15,27 @@ export const APP_CONFIG = {
     // Google API Configuration (placeholders - will be set via environment or UI)
     GOOGLE_API_KEY: '', // Set this via environment variable or secure config
     GOOGLE_CLIENT_ID: '825827340710-ejjs06hs55j4bhvr1ds8tsfrvfb1r0sl.apps.googleusercontent.com', // OAuth2 client ID - REQUIRED for write access
-
-
-    // Add GitHub Pages specific settings
-    GITHUB_PAGES: {
-        BASE_URL: 'https://andyathealing.github.io/HGC_GLOBAL',
-        PRODUCTION: true
+    
+    // ADD MISSING MULTI-LANGUAGE CONFIG
+    MULTI_LANGUAGE_JSON: {
+        LANGUAGE_CODES: ['en', 'ja', 'th'],
+        DEFAULT_VALUES: {
+            name: '',
+            history: '',
+            description: ''
+        },
+        PARSING: {
+            LOG_ERRORS: true
+        }
     },
     
+    // ADD MISSING PERFORMANCE CONFIG
+    PERFORMANCE: {
+        JSON_CACHE: {
+            ENABLED: true,
+            MAX_SIZE: 100
+        }
+    },
     
     // Validation Rules
     VALIDATION: {
@@ -40,35 +53,43 @@ export const APP_CONFIG = {
             id: 0,
             kr_name: 1,
             kr_history: 2,
-            manual_name: 3,
-            manual_history: 4,
-            llm_name: 5,
-            llm_history: 6,
-            json_result: 7
+            language: 3,           // NEW
+            old_name: 4,          // NEW
+            old_history: 5,       // NEW
+            old_json: 6,          // NEW
+            manual_name: 7,       // UPDATED position
+            manual_history: 8,    // UPDATED position
+            llm_name: 9,          // UPDATED position
+            llm_history: 10,      // UPDATED position
+            updated_json: 11      // RENAMED from json_result
         },
         HOSPITAL: {
             id: 0,
             kr_name: 1,
             kr_description: 2,
-            manual_name: 3,
-            manual_description: 4,
-            llm_name: 5,
-            llm_description: 6,
-            json_result: 7
+            language: 3,           // NEW
+            old_name: 4,          // NEW
+            old_description: 5,   // NEW
+            old_json: 6,          // NEW
+            manual_name: 7,       // UPDATED position
+            manual_description: 8, // UPDATED position
+            llm_name: 9,          // UPDATED position
+            llm_description: 10,  // UPDATED position
+            updated_json: 11      // RENAMED from json_result
         }
     },
     
     // Column Letters for Writing (A=0, B=1, etc.)
     COLUMN_LETTERS: {
         DOCTOR: {
-            llm_name: 'F',      // Column 5
-            llm_history: 'G',   // Column 6
-            json_result: 'H'    // Column 7
+            llm_name: 'J',          // Column 9 (was F)
+            llm_history: 'K',       // Column 10 (was G)
+            updated_json: 'L'       // Column 11 (was H, renamed from json_result)
         },
         HOSPITAL: {
-            llm_name: 'F',          // Column 5
-            llm_description: 'G',   // Column 6
-            json_result: 'H'        // Column 7
+            llm_name: 'J',          // Column 9 (was F)
+            llm_description: 'K',   // Column 10 (was G)
+            updated_json: 'L'       // Column 11 (was H, renamed from json_result)
         }
     },
     
