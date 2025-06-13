@@ -166,11 +166,11 @@ export const APP_CONFIG = {
         WRITE_DELAY: 100
     },
     
-    // OAuth2 Configuration - FIXED DISCOVERY DOCS URL
+    // OAuth2 Configuration - NO DISCOVERY DOCS (Load manually)
     OAUTH2: {
         SCOPES: ['https://www.googleapis.com/auth/spreadsheets'],
-        // FIXED: Removed $discovery from URL
-        DISCOVERY_DOCS: ['https://sheets.googleapis.com/discovery/rest?version=v4'],
+        // REMOVED discovery docs - load manually after init
+        DISCOVERY_DOCS: [],
         SIGN_IN_OPTIONS: {
             prompt: 'select_account',
             ux_mode: 'popup'
