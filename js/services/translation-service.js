@@ -285,21 +285,21 @@ export class TranslationService {
         const url = `${this.baseUrl}/translate`;
         
         // Prepare request body
-        const formData = new FormData();
+        const params = new URLSearchParams();
         texts.forEach(text => {
-            formData.append('text', text);
-        });
-        formData.append('target_lang', targetLang);
-        formData.append('source_lang', 'KO');
-        
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `DeepL-Auth-Key ${this.apiKey}`
-                },
-                body: formData
-            });
+    params.append('text', text);
+});
+params.append('target_lang', targetLang);
+params.append('source_lang', 'KO');
+
+fetch(url, {
+    method: 'POST',
+    headers: {
+        'Authorization': `DeepL-Auth-Key ${this.apiKey}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: params.toString()
+})
             
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
