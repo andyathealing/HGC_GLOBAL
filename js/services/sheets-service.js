@@ -1,4 +1,4 @@
-// Google Sheets Service Module - With Detailed Error Logging
+// Google Sheets Service Module - Manual API Loading
 import { APP_CONFIG } from '../../config/config.js';
 
 export class SheetsService {
@@ -17,9 +17,13 @@ export class SheetsService {
             await this.loadGoogleAPI();
             console.log('Google API loaded successfully');
             
-            // Initialize client with detailed logging
+            // Initialize client with minimal config
             await this.initializeClient(config);
             console.log('Google client initialized successfully');
+            
+            // Load Sheets API manually
+            await this.loadSheetsAPI();
+            console.log('Sheets API loaded successfully');
             
             this.apiLoaded = true;
             return true;
@@ -80,7 +84,7 @@ export class SheetsService {
                         throw new Error('gapi.client is undefined');
                     }
                     
-                    // Simple configuration - only essentials
+                    // Minimal configuration - NO discovery docs
                     const clientId = config.clientId || APP_CONFIG.GOOGLE_CLIENT_ID;
                     
                     if (!clientId) {
@@ -89,31 +93,18 @@ export class SheetsService {
                     
                     console.log('Using Client ID:', clientId);
                     
+                    // SIMPLIFIED: Only client ID and scope, no discovery docs
                     const initConfig = {
                         clientId: clientId,
-                        scope: 'https://www.googleapis.com/auth/spreadsheets',
-                        discoveryDocs: ['https://sheets.googleapis.com/discovery/rest?version=v4']
+                        scope: 'https://www.googleapis.com/auth/spreadsheets'
                     };
                     
-                    console.log('Initializing with config:', initConfig);
+                    console.log('Initializing with minimal config:', initConfig);
                     
-                    // Add detailed error handling for the init call
-                    try {
-                        const initResult = await window.gapi.client.init(initConfig);
-                        console.log('gapi.client.init completed successfully');
-                        console.log('Init result:', initResult);
-                    } catch (initError) {
-                        console.error('gapi.client.init failed:', initError);
-                        console.error('Init error details:', {
-                            message: initError.message,
-                            status: initError.status,
-                            details: initError.details,
-                            error: initError.error
-                        });
-                        throw initError;
-                    }
+                    await window.gapi.client.init(initConfig);
+                    console.log('gapi.client.init completed successfully');
                     
-                    // Get auth instance with error checking
+                    // Get auth instance
                     console.log('Getting auth instance...');
                     this.authClient = window.gapi.auth2.getAuthInstance();
                     this.gapiClient = window.gapi.client;
@@ -124,7 +115,6 @@ export class SheetsService {
                     }
                     
                     console.log('Auth instance obtained successfully');
-                    console.log('Auth instance type:', typeof this.authClient);
                     
                     // Set up auth state listener
                     this.authClient.isSignedIn.listen((isSignedIn) => {
@@ -140,8 +130,6 @@ export class SheetsService {
                     
                 } catch (error) {
                     console.error('Client initialization error:', error);
-                    console.error('Error type:', typeof error);
-                    console.error('Error properties:', Object.keys(error));
                     reject(new Error(`Failed to initialize Google client: ${error.message || 'Unknown error'}`));
                 }
             }, (loadError) => {
@@ -149,6 +137,36 @@ export class SheetsService {
                 reject(new Error('Failed to load Google API client libraries'));
             });
         });
+    }
+    
+    async loadSheetsAPI() {
+        console.log('Loading Sheets API manually...');
+        
+        try {
+            // Load the Sheets API using gapi.client.load
+            await new Promise((resolve, reject) => {
+                window.gapi.client.load('sheets', 'v4', (response) => {
+                    if (response && response.error) {
+                        console.error('Sheets API load error:', response.error);
+                        reject(new Error(`Failed to load Sheets API: ${response.error.message}`));
+                    } else {
+                        console.log('Sheets API loaded via gapi.client.load');
+                        resolve();
+                    }
+                });
+            });
+            
+            // Verify the API is loaded
+            if (!window.gapi.client.sheets) {
+                throw new Error('Sheets API not available after loading');
+            }
+            
+            console.log('Sheets API verified and ready');
+            
+        } catch (error) {
+            console.error('Failed to load Sheets API:', error);
+            throw new Error(`Failed to load Sheets API: ${error.message}`);
+        }
     }
     
     handleAuthChange(isSignedIn) {
@@ -326,7 +344,7 @@ export class SheetsService {
     }
     
     ensureApiLoaded() {
-        if (!this.apiLoaded || !this.gapiClient) {
+        if (!this.apiLoaded || !this.gapiClient || !this.gapiClient.sheets) {
             throw new Error('Google Sheets API not initialized. Call initialize() first.');
         }
     }
