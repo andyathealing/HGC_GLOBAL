@@ -1,27 +1,28 @@
-// Google Sheets Service Module - Manual API Loading
+// Google Sheets Service Module - Using Google Identity Services (GIS)
 import { APP_CONFIG } from '../../config/config.js';
 
 export class SheetsService {
     constructor() {
         this.apiLoaded = false;
         this.gapiClient = null;
-        this.authClient = null;
+        this.accessToken = null;
         this.currentUser = null;
+        this.tokenClient = null;
     }
     
     async initialize(config = {}) {
         try {
-            console.log('Starting Google API initialization...');
+            console.log('Starting Google API initialization with GIS...');
             
-            // Load Google API
-            await this.loadGoogleAPI();
-            console.log('Google API loaded successfully');
+            // Load Google API and GIS
+            await this.loadGoogleLibraries();
+            console.log('Google libraries loaded successfully');
             
-            // Initialize client with minimal config
+            // Initialize client
             await this.initializeClient(config);
             console.log('Google client initialized successfully');
             
-            // Load Sheets API manually
+            // Load Sheets API
             await this.loadSheetsAPI();
             console.log('Sheets API loaded successfully');
             
@@ -30,13 +31,16 @@ export class SheetsService {
             
         } catch (error) {
             console.error('Failed to initialize Sheets API:', error);
-            console.error('Error details:', {
-                message: error.message,
-                stack: error.stack,
-                name: error.name
-            });
             throw new Error(`Failed to initialize Google Sheets API: ${error.message}`);
         }
+    }
+    
+    async loadGoogleLibraries() {
+        // Load both gapi and gsi libraries
+        await Promise.all([
+            this.loadGoogleAPI(),
+            this.loadGoogleIdentityServices()
+        ]);
     }
     
     async loadGoogleAPI() {
@@ -55,16 +59,38 @@ export class SheetsService {
             
             script.onload = () => {
                 console.log('Google API script loaded');
-                if (window.gapi) {
-                    resolve();
-                } else {
-                    reject(new Error('Google API failed to load'));
-                }
+                resolve();
             };
             
-            script.onerror = (error) => {
-                console.error('Failed to load Google API script:', error);
+            script.onerror = () => {
                 reject(new Error('Failed to load Google API script'));
+            };
+            
+            document.head.appendChild(script);
+        });
+    }
+    
+    async loadGoogleIdentityServices() {
+        return new Promise((resolve, reject) => {
+            if (window.google?.accounts) {
+                console.log('Google Identity Services already loaded');
+                resolve();
+                return;
+            }
+            
+            console.log('Loading Google Identity Services...');
+            const script = document.createElement('script');
+            script.src = 'https://accounts.google.com/gsi/client';
+            script.async = true;
+            script.defer = true;
+            
+            script.onload = () => {
+                console.log('Google Identity Services loaded');
+                resolve();
+            };
+            
+            script.onerror = () => {
+                reject(new Error('Failed to load Google Identity Services'));
             };
             
             document.head.appendChild(script);
@@ -73,18 +99,12 @@ export class SheetsService {
     
     async initializeClient(config) {
         return new Promise((resolve, reject) => {
-            console.log('Loading gapi client and auth2...');
+            console.log('Loading gapi client...');
             
-            window.gapi.load('client:auth2', async () => {
+            window.gapi.load('client', async () => {
                 try {
-                    console.log('gapi.client and gapi.auth2 loaded');
+                    console.log('gapi.client loaded');
                     
-                    // Check if gapi.client exists
-                    if (!window.gapi.client) {
-                        throw new Error('gapi.client is undefined');
-                    }
-                    
-                    // Minimal configuration - NO discovery docs
                     const clientId = config.clientId || APP_CONFIG.GOOGLE_CLIENT_ID;
                     
                     if (!clientId) {
@@ -93,153 +113,153 @@ export class SheetsService {
                     
                     console.log('Using Client ID:', clientId);
                     
-                    // SIMPLIFIED: Only client ID and scope, no discovery docs
-                    const initConfig = {
-                        clientId: clientId,
-                        scope: 'https://www.googleapis.com/auth/spreadsheets'
-                    };
-                    
-                    console.log('Initializing with minimal config:', initConfig);
-                    
-                    await window.gapi.client.init(initConfig);
-                    console.log('gapi.client.init completed successfully');
-                    
-                    // Get auth instance
-                    console.log('Getting auth instance...');
-                    this.authClient = window.gapi.auth2.getAuthInstance();
-                    this.gapiClient = window.gapi.client;
-                    
-                    if (!this.authClient) {
-                        console.error('Auth instance is null/undefined');
-                        throw new Error('Failed to get auth instance - returned null/undefined');
-                    }
-                    
-                    console.log('Auth instance obtained successfully');
-                    
-                    // Set up auth state listener
-                    this.authClient.isSignedIn.listen((isSignedIn) => {
-                        this.handleAuthChange(isSignedIn);
+                    // Initialize gapi client (no auth)
+                    await window.gapi.client.init({
+                        // No authentication here - just API client
                     });
                     
-                    // Handle initial auth state
-                    const currentSignInState = this.authClient.isSignedIn.get();
-                    console.log('Current sign-in state:', currentSignInState);
-                    this.handleAuthChange(currentSignInState);
+                    console.log('gapi.client.init completed');
+                    this.gapiClient = window.gapi.client;
+                    
+                    // Initialize Google Identity Services token client
+                    this.tokenClient = window.google.accounts.oauth2.initTokenClient({
+                        client_id: clientId,
+                        scope: 'https://www.googleapis.com/auth/spreadsheets',
+                        callback: (response) => {
+                            console.log('Token response:', response);
+                            if (response.error) {
+                                console.error('Token error:', response.error);
+                                return;
+                            }
+                            this.accessToken = response.access_token;
+                            this.handleAuthChange(true);
+                        },
+                        error_callback: (error) => {
+                            console.error('Token client error:', error);
+                            this.handleAuthChange(false);
+                        }
+                    });
+                    
+                    console.log('Google Identity Services token client initialized');
                     
                     resolve();
                     
                 } catch (error) {
                     console.error('Client initialization error:', error);
-                    reject(new Error(`Failed to initialize Google client: ${error.message || 'Unknown error'}`));
+                    reject(new Error(`Failed to initialize Google client: ${error.message}`));
                 }
-            }, (loadError) => {
-                console.error('Failed to load gapi client:auth2:', loadError);
-                reject(new Error('Failed to load Google API client libraries'));
             });
         });
     }
     
     async loadSheetsAPI() {
-        console.log('Loading Sheets API manually...');
+        console.log('Loading Sheets API...');
         
         try {
-            // Load the Sheets API using gapi.client.load
             await new Promise((resolve, reject) => {
                 window.gapi.client.load('sheets', 'v4', (response) => {
                     if (response && response.error) {
                         console.error('Sheets API load error:', response.error);
                         reject(new Error(`Failed to load Sheets API: ${response.error.message}`));
                     } else {
-                        console.log('Sheets API loaded via gapi.client.load');
+                        console.log('Sheets API loaded successfully');
                         resolve();
                     }
                 });
             });
             
-            // Verify the API is loaded
             if (!window.gapi.client.sheets) {
                 throw new Error('Sheets API not available after loading');
             }
             
-            console.log('Sheets API verified and ready');
-            
         } catch (error) {
             console.error('Failed to load Sheets API:', error);
-            throw new Error(`Failed to load Sheets API: ${error.message}`);
+            throw error;
         }
     }
     
     handleAuthChange(isSignedIn) {
         console.log('Auth state changed:', isSignedIn);
         if (isSignedIn) {
-            const user = this.authClient.currentUser.get();
-            this.currentUser = user;
-            console.log('User signed in:', user.getBasicProfile().getEmail());
+            console.log('User authenticated with access token');
+            // Set the access token for API requests
+            window.gapi.client.setToken({
+                access_token: this.accessToken
+            });
         } else {
-            this.currentUser = null;
-            console.log('User signed out');
+            console.log('User not authenticated');
+            this.accessToken = null;
+            window.gapi.client.setToken(null);
         }
     }
     
     async authenticate() {
         try {
-            console.log('Starting authentication...');
+            console.log('Starting authentication with Google Identity Services...');
             
-            if (this.authClient && this.authClient.isSignedIn.get()) {
-                console.log('Already signed in');
+            if (this.isAuthenticated()) {
+                console.log('Already authenticated');
                 return true;
             }
             
-            if (!this.authClient) {
-                throw new Error('Auth client not initialized');
+            if (!this.tokenClient) {
+                throw new Error('Token client not initialized');
             }
             
-            console.log('Calling signIn...');
-            const user = await this.authClient.signIn({
-                prompt: 'select_account'
+            return new Promise((resolve, reject) => {
+                // Set up one-time callback for this authentication attempt
+                const originalCallback = this.tokenClient.callback;
+                
+                this.tokenClient.callback = (response) => {
+                    // Restore original callback
+                    this.tokenClient.callback = originalCallback;
+                    
+                    if (response.error) {
+                        console.error('Authentication failed:', response.error);
+                        reject(new Error(`Authentication failed: ${response.error}`));
+                        return;
+                    }
+                    
+                    console.log('Authentication successful');
+                    this.accessToken = response.access_token;
+                    this.handleAuthChange(true);
+                    resolve(true);
+                };
+                
+                // Request access token
+                console.log('Requesting access token...');
+                this.tokenClient.requestAccessToken({
+                    prompt: 'consent' // Force account selection
+                });
             });
-            
-            this.currentUser = user;
-            console.log('Authentication successful');
-            return true;
             
         } catch (error) {
             console.error('Authentication failed:', error);
-            console.error('Auth error details:', {
-                error: error.error,
-                details: error.details
-            });
             throw new Error(`Failed to authenticate with Google: ${error.message}`);
         }
     }
     
     async signOut() {
-        if (this.authClient) {
-            await this.authClient.signOut();
-            this.currentUser = null;
-            console.log('Signed out successfully');
+        if (this.accessToken && window.google?.accounts?.oauth2) {
+            window.google.accounts.oauth2.revoke(this.accessToken);
         }
+        this.accessToken = null;
+        this.currentUser = null;
+        this.handleAuthChange(false);
+        console.log('Signed out successfully');
     }
     
     isAuthenticated() {
-        return this.authClient && this.authClient.isSignedIn.get();
+        return !!this.accessToken;
     }
     
     getCurrentUser() {
-        if (!this.isAuthenticated()) return null;
-        
-        const user = this.authClient.currentUser.get();
-        const profile = user.getBasicProfile();
-        
-        return {
-            id: profile.getId(),
-            name: profile.getName(),
-            email: profile.getEmail(),
-            imageUrl: profile.getImageUrl()
-        };
+        // With GIS, we don't get user profile automatically
+        // You would need to make a separate API call to get user info
+        return this.currentUser;
     }
     
-    // Essential methods for basic functionality
+    // Essential API methods
     async getSheetData(spreadsheetId, sheetName = null) {
         this.ensureApiLoaded();
         this.ensureAuthenticated();
