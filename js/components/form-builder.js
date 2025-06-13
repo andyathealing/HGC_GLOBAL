@@ -67,7 +67,7 @@ export const TranslationFormBuilder = {
             // Enable/disable form based on auth
             const shouldDisable = !isAuthenticated;
             sections.dataSource.inputs.sheetsUrl.setDisabled(shouldDisable);
-            sections.dataType.inputs.dataType.setDisabled?.(shouldDisable);
+            sections.dataType.setDisabled?.(shouldDisable);
             sections.language.inputs.language.setDisabled(shouldDisable);
             sections.apiConfig.inputs.apiKey.setDisabled(shouldDisable);
             
